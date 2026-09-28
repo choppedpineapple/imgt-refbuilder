@@ -5,11 +5,11 @@ Automated pipeline for downloading IMGT antibody reference sequences and generat
 
 Download IMGT reference FASTAs:
 
-    ./scripts/download_imgt_refs.sh --organism Homo_sapiens --chain all
+    ./scripts/imgt-refbuilder.sh download --organism Homo_sapiens --chain all
 
-Convert them to IgBLAST-compatible FASTAs (requires `perl` in PATH, e.g. from a micromamba environment):
+Convert them to IgBLAST-compatible V/D/J FASTAs (requires `perl` in PATH, e.g. from a micromamba environment):
 
-    ./scripts/process_imgt_refs.sh --organism Homo_sapiens
+    ./scripts/imgt-refbuilder.sh process --organism Homo_sapiens
 
 `scripts/edit_imgt_file.pl` is the official NCBI utility, copied unchanged from the
 IgBLAST 1.22.0 release (https://ftp.ncbi.nih.gov/blast/executables/igblast/release/);
