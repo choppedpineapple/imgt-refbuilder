@@ -8,9 +8,10 @@ cd "${script_dir}/.."
 base_url="https://www.imgt.org/download/V-QUEST/IMGT_V-QUEST_reference_directory"
 
 usage() {
-    echo "usage: ${0} download --organism <name> --chain heavy|kappa|lambda|all" >&2
-    echo "       ${0} process --organism <name>" >&2
+    echo "usage: ${0} download --organism <name> --chain heavy|kappa|lambda|all [--curl <path>]" >&2
+    echo "       ${0} process --organism <name> [--perl <path>]" >&2
     echo "       ${0} build --organism <name> [--makeblastdb <path>]" >&2
+    echo "       ${0} test --organism <name> --query <fasta> [--igblastn <path>]" >&2
     exit 2
 }
 
@@ -22,6 +23,7 @@ case "${cmd}" in
 download)
     organism=""
     chain=""
+    curl_bin=""
     while [[ ${#} -gt 0 ]]; do
         case "${1}" in
         --organism)
@@ -30,6 +32,10 @@ download)
             ;;
         --chain)
             chain="${2:?missing value for --chain}"
+            shift 2
+            ;;
+        --curl)
+            curl_bin="${2:?missing value for --curl}"
             shift 2
             ;;
         *)
@@ -49,6 +55,17 @@ download)
         exit 2
         ;;
     esac
+    if [[ -n "${curl_bin}" ]]; then
+        if [[ ! -x "${curl_bin}" ]]; then
+            echo "error: not executable: ${curl_bin}" >&2
+            exit 1
+        fi
+    elif curl_bin="$(command -v curl)"; then
+        :
+    else
+        echo "error: curl not found in PATH; pass --curl <path>" >&2
+        exit 1
+    fi
     total=0
     for c in "${chains[@]}"; do
         outdir="data/raw/${organism}/${c}"
@@ -56,12 +73,12 @@ download)
             file="${c}${g}.fasta"
             url="${base_url}/${organism}/IG/${file}"
             # not every organism has every chain/group (e.g. no IGK in Gallus_gallus)
-            if [[ "$(curl -s -o /dev/null -w '%{http_code}' "${url}")" == "404" ]]; then
+            if [[ "$("${curl_bin}" -s -o /dev/null -w '%{http_code}' "${url}")" == "404" ]]; then
                 echo "skipping ${file} (not available for ${organism})"
                 continue
             fi
             mkdir -p "${outdir}"
-            curl -fsSL "${url}" -o "${outdir}/${file}.tmp"
+            "${curl_bin}" -fsSL "${url}" -o "${outdir}/${file}.tmp"
             if [[ ! -s "${outdir}/${file}.tmp" ]] || ! grep -q '^>' "${outdir}/${file}.tmp"; then
                 rm -f "${outdir}/${file}.tmp"
                 echo "error: download failed or not a FASTA: ${url}" >&2
@@ -78,10 +95,15 @@ download)
     ;;
 process)
     organism=""
+    perl_bin=""
     while [[ ${#} -gt 0 ]]; do
         case "${1}" in
         --organism)
             organism="${2:?missing value for --organism}"
+            shift 2
+            ;;
+        --perl)
+            perl_bin="${2:?missing value for --perl}"
             shift 2
             ;;
         *)
@@ -91,8 +113,15 @@ process)
         esac
     done
     [[ -z "${organism}" ]] && usage
-    if ! command -v perl >/dev/null; then
-        echo "error: perl is required but not found in PATH; make it available in your micromamba environment" >&2
+    if [[ -n "${perl_bin}" ]]; then
+        if [[ ! -x "${perl_bin}" ]]; then
+            echo "error: not executable: ${perl_bin}" >&2
+            exit 1
+        fi
+    elif perl_bin="$(command -v perl)"; then
+        :
+    else
+        echo "error: perl not found in PATH; pass --perl <path>" >&2
         exit 1
     fi
     if [[ ! -d "data/raw/${organism}" ]]; then
@@ -109,7 +138,7 @@ process)
         # then run edit_imgt_file.pl (rewrites IMGT deflines to germline gene names,
         # strips alignment dots)
         cat "${files[@]}" >"${outdir}/${region}.raw.tmp"
-        perl "${script_dir}/edit_imgt_file.pl" "${outdir}/${region}.raw.tmp" >"${outdir}/${region}.fasta.tmp"
+        "${perl_bin}" "${script_dir}/edit_imgt_file.pl" "${outdir}/${region}.raw.tmp" >"${outdir}/${region}.fasta.tmp"
         mv "${outdir}/${region}.fasta.tmp" "${outdir}/${region}.fasta"
         rm "${outdir}/${region}.raw.tmp"
     done
@@ -139,10 +168,10 @@ build)
             echo "error: not executable: ${makeblastdb_bin}" >&2
             exit 1
         fi
-    elif command -v makeblastdb >/dev/null; then
-        makeblastdb_bin="makeblastdb"
+    elif makeblastdb_bin="$(command -v makeblastdb)"; then
+        :
     else
-        echo "error: makeblastdb not found in PATH; activate your micromamba environment or pass --makeblastdb <path>" >&2
+        echo "error: makeblastdb not found in PATH; pass --makeblastdb <path>" >&2
         exit 1
     fi
     indir="data/processed/${organism}"
@@ -160,20 +189,51 @@ build)
         }
         mv "${tmpdir}"/* "${outdir}"/
         rmdir "${tmpdir}"
-        # smoke-check the database when blastdbcmd is available (not required)
-        blastdbcmd_bin="$(dirname "${makeblastdb_bin}")/blastdbcmd"
-        if [[ ! -x "${blastdbcmd_bin}" ]]; then
-            blastdbcmd_bin="$(command -v blastdbcmd || true)"
-        fi
-        if [[ -n "${blastdbcmd_bin}" ]]; then
-            "${blastdbcmd_bin}" -db "${outdir}/${region}" -info >/dev/null
-        fi
         built=$((built + 1))
     done
     if [[ ${built} -eq 0 ]]; then
         echo "error: no processed V/D/J files for '${organism}'; run ${0} process first" >&2
         exit 1
     fi
+    ;;
+test)
+    organism=""
+    query=""
+    igblastn_bin=""
+    while [[ ${#} -gt 0 ]]; do
+        case "${1}" in
+        --organism)
+            organism="${2:?missing value for --organism}"
+            shift 2
+            ;;
+        --query)
+            query="${2:?missing value for --query}"
+            shift 2
+            ;;
+        --igblastn)
+            igblastn_bin="${2:?missing value for --igblastn}"
+            shift 2
+            ;;
+        *)
+            echo "unknown argument: ${1}" >&2
+            exit 2
+            ;;
+        esac
+    done
+    [[ -z "${organism}" || -z "${query}" ]] && usage
+    if [[ -n "${igblastn_bin}" ]]; then
+        if [[ ! -x "${igblastn_bin}" ]]; then
+            echo "error: not executable: ${igblastn_bin}" >&2
+            exit 1
+        fi
+    elif igblastn_bin="$(command -v igblastn)"; then
+        :
+    else
+        echo "error: igblastn not found in PATH; pass --igblastn <path>" >&2
+        exit 1
+    fi
+    echo "error: the test subcommand is not implemented yet" >&2
+    exit 1
     ;;
 *)
     usage

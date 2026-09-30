@@ -7,16 +7,27 @@ Download IMGT reference FASTAs:
 
     ./scripts/imgt-refbuilder.sh download --organism Homo_sapiens --chain all
 
-Convert them to IgBLAST-compatible V/D/J FASTAs (requires `perl` in PATH, e.g. from a micromamba environment):
+Convert them to IgBLAST-compatible V/D/J FASTAs:
 
     ./scripts/imgt-refbuilder.sh process --organism Homo_sapiens
 
-Build the V/D/J BLAST databases into `data/database/<organism>/` (uses `makeblastdb`
-from PATH, e.g. from a micromamba environment):
+Build the V/D/J BLAST databases into `data/database/<organism>/`:
 
     ./scripts/imgt-refbuilder.sh build --organism Homo_sapiens
 
-If `makeblastdb` is not in PATH, pass it explicitly:
+## External tools
+
+Each subcommand needs one external tool: `curl` (download), `perl` (process),
+`makeblastdb` (build) and `igblastn` (test, not yet functional). The tool is taken
+from `PATH`; the program does not install or manage these tools (micromamba is one
+possible way to install them). If a tool is not in `PATH`, pass its path explicitly:
+
+    --curl <path>
+    --perl <path>
+    --makeblastdb <path>
+    --igblastn <path>
+
+For example:
 
     ./scripts/imgt-refbuilder.sh build --organism Homo_sapiens --makeblastdb /path/to/makeblastdb
 
