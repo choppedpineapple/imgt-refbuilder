@@ -1,5 +1,6 @@
 # downloaded imgt reference data
 data/raw/
 data/processed/
+data/database/
 
 *.tmp

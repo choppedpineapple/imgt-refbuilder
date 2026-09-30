@@ -10,6 +10,7 @@ base_url="https://www.imgt.org/download/V-QUEST/IMGT_V-QUEST_reference_directory
 usage() {
     echo "usage: ${0} download --organism <name> --chain heavy|kappa|lambda|all" >&2
     echo "       ${0} process --organism <name>" >&2
+    echo "       ${0} build --organism <name> [--makeblastdb <path>]" >&2
     exit 2
 }
 
@@ -17,29 +18,27 @@ cmd="${1:-}"
 [[ -z "${cmd}" ]] && usage
 shift
 
-organism=""
-chain=""
-while [[ ${#} -gt 0 ]]; do
-    case "${1}" in
-    --organism)
-        organism="${2}"
-        shift 2
-        ;;
-    --chain)
-        chain="${2}"
-        shift 2
-        ;;
-    *)
-        echo "unknown argument: ${1}" >&2
-        exit 2
-        ;;
-    esac
-done
-
-[[ -z "${organism}" ]] && usage
-
 case "${cmd}" in
 download)
+    organism=""
+    chain=""
+    while [[ ${#} -gt 0 ]]; do
+        case "${1}" in
+        --organism)
+            organism="${2:?missing value for --organism}"
+            shift 2
+            ;;
+        --chain)
+            chain="${2:?missing value for --chain}"
+            shift 2
+            ;;
+        *)
+            echo "unknown argument: ${1}" >&2
+            exit 2
+            ;;
+        esac
+    done
+    [[ -z "${organism}" ]] && usage
     case "${chain}" in
     heavy) chains=(IGH) ;;
     kappa) chains=(IGK) ;;
@@ -78,6 +77,20 @@ download)
     fi
     ;;
 process)
+    organism=""
+    while [[ ${#} -gt 0 ]]; do
+        case "${1}" in
+        --organism)
+            organism="${2:?missing value for --organism}"
+            shift 2
+            ;;
+        *)
+            echo "unknown argument: ${1}" >&2
+            exit 2
+            ;;
+        esac
+    done
+    [[ -z "${organism}" ]] && usage
     if ! command -v perl >/dev/null; then
         echo "error: perl is required but not found in PATH; make it available in your micromamba environment" >&2
         exit 1
@@ -100,6 +113,67 @@ process)
         mv "${outdir}/${region}.fasta.tmp" "${outdir}/${region}.fasta"
         rm "${outdir}/${region}.raw.tmp"
     done
+    ;;
+build)
+    organism=""
+    makeblastdb_bin=""
+    while [[ ${#} -gt 0 ]]; do
+        case "${1}" in
+        --organism)
+            organism="${2:?missing value for --organism}"
+            shift 2
+            ;;
+        --makeblastdb)
+            makeblastdb_bin="${2:?missing value for --makeblastdb}"
+            shift 2
+            ;;
+        *)
+            echo "unknown argument: ${1}" >&2
+            exit 2
+            ;;
+        esac
+    done
+    [[ -z "${organism}" ]] && usage
+    if [[ -n "${makeblastdb_bin}" ]]; then
+        if [[ ! -x "${makeblastdb_bin}" ]]; then
+            echo "error: not executable: ${makeblastdb_bin}" >&2
+            exit 1
+        fi
+    elif command -v makeblastdb >/dev/null; then
+        makeblastdb_bin="makeblastdb"
+    else
+        echo "error: makeblastdb not found in PATH; activate your micromamba environment or pass --makeblastdb <path>" >&2
+        exit 1
+    fi
+    indir="data/processed/${organism}"
+    outdir="data/database/${organism}"
+    built=0
+    for region in V D J; do
+        [[ -f "${indir}/${region}.fasta" ]] || continue
+        # build into a temp dir so a failed run never leaves a half-written database
+        tmpdir="${outdir}/.build.${region}"
+        rm -rf "${tmpdir}"
+        mkdir -p "${tmpdir}"
+        "${makeblastdb_bin}" -parse_seqids -dbtype nucl -in "${indir}/${region}.fasta" -out "${tmpdir}/${region}" || {
+            rm -rf "${tmpdir}"
+            exit 1
+        }
+        mv "${tmpdir}"/* "${outdir}"/
+        rmdir "${tmpdir}"
+        # smoke-check the database when blastdbcmd is available (not required)
+        blastdbcmd_bin="$(dirname "${makeblastdb_bin}")/blastdbcmd"
+        if [[ ! -x "${blastdbcmd_bin}" ]]; then
+            blastdbcmd_bin="$(command -v blastdbcmd || true)"
+        fi
+        if [[ -n "${blastdbcmd_bin}" ]]; then
+            "${blastdbcmd_bin}" -db "${outdir}/${region}" -info >/dev/null
+        fi
+        built=$((built + 1))
+    done
+    if [[ ${built} -eq 0 ]]; then
+        echo "error: no processed V/D/J files for '${organism}'; run ${0} process first" >&2
+        exit 1
+    fi
     ;;
 *)
     usage
