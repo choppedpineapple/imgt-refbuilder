@@ -134,9 +134,7 @@ process)
     for region in V D J; do
         files=(data/raw/"${organism}"/*/*"${region}".fasta)
         [[ ${#files[@]} -eq 0 ]] && continue
-        # NCBI IgBLAST workflow: combine all V, all D, all J into separate files,
-        # then run edit_imgt_file.pl (rewrites IMGT deflines to germline gene names,
-        # strips alignment dots)
+        # NCBI workflow: combine each region, then edit_imgt_file.pl fixes the IMGT deflines
         cat "${files[@]}" >"${outdir}/${region}.raw.tmp"
         "${perl_bin}" "${script_dir}/edit_imgt_file.pl" "${outdir}/${region}.raw.tmp" >"${outdir}/${region}.fasta.tmp"
         mv "${outdir}/${region}.fasta.tmp" "${outdir}/${region}.fasta"
@@ -179,7 +177,7 @@ build)
     built=0
     for region in V D J; do
         [[ -f "${indir}/${region}.fasta" ]] || continue
-        # build into a temp dir so a failed run never leaves a half-written database
+        # keep each database out of the final location until makeblastdb succeeds
         tmpdir="${outdir}/.build.${region}"
         rm -rf "${tmpdir}"
         mkdir -p "${tmpdir}"
