@@ -51,9 +51,10 @@ when running `process`.
        --query query.fasta
    ```
 
-All commands work for any organism in the IMGT reference directory. Not every
-organism has IGH, IGK and IGL reference files — the downloader simply uses the
-reference files IMGT provides for that organism, and missing groups are normal.
+The download, process and build commands work for organisms in the IMGT
+reference directory. Not every organism has IGH, IGK and IGL reference files —
+the downloader simply uses the reference files IMGT provides for that organism,
+and missing groups are normal.
 
 ## Tool paths
 
@@ -92,8 +93,7 @@ downloaded reference data:
 - https://www.imgt.org/vquest/refseqh.html
 
 NCBI IgBLAST is an external dependency and is not included in this repository.
-Obtain it directly from NCBI. IgBLAST is a U.S. Government Work, freely
-available for public use (https://ncbi.github.io/igblast/dev/copyright.html).
+Obtain it directly from NCBI.
 
 imgt-refbuilder is an independent project and is not affiliated with or
 endorsed by IMGT® or NCBI.
