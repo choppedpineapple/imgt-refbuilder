@@ -1,7 +1,4 @@
-# downloaded imgt reference data
-data/raw/
-data/processed/
-data/database/
-data/test/
+# generated/downloaded reference data
+data/
 
 *.tmp

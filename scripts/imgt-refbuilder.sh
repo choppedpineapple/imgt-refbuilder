@@ -9,7 +9,7 @@ base_url="https://www.imgt.org/download/V-QUEST/IMGT_V-QUEST_reference_directory
 
 usage() {
     echo "usage: ${0} download --organism <name> --chain heavy|kappa|lambda|all [--curl <path>]" >&2
-    echo "       ${0} process --organism <name> [--perl <path>]" >&2
+    echo "       ${0} process --organism <name> --edit-imgt-file <path> [--perl <path>]" >&2
     echo "       ${0} build --organism <name> [--makeblastdb <path>]" >&2
     echo "       ${0} test --organism <name> --query <fasta> [--igblastn <path>] [--igdata <path>]" >&2
     exit 2
@@ -95,11 +95,16 @@ download)
     ;;
 process)
     organism=""
+    edit_imgt_file=""
     perl_bin=""
     while [[ ${#} -gt 0 ]]; do
         case "${1}" in
         --organism)
             organism="${2:?missing value for --organism}"
+            shift 2
+            ;;
+        --edit-imgt-file)
+            edit_imgt_file="${2:?missing value for --edit-imgt-file}"
             shift 2
             ;;
         --perl)
@@ -113,6 +118,14 @@ process)
         esac
     done
     [[ -z "${organism}" ]] && usage
+    if [[ -z "${edit_imgt_file}" ]]; then
+        echo "error: --edit-imgt-file <path> is required (obtain edit_imgt_file.pl from the NCBI IgBLAST release)" >&2
+        exit 2
+    fi
+    if [[ ! -f "${edit_imgt_file}" || ! -r "${edit_imgt_file}" ]]; then
+        echo "error: cannot read edit_imgt_file.pl: ${edit_imgt_file}" >&2
+        exit 1
+    fi
     if [[ -n "${perl_bin}" ]]; then
         if [[ ! -x "${perl_bin}" ]]; then
             echo "error: not executable: ${perl_bin}" >&2
@@ -136,7 +149,7 @@ process)
         [[ ${#files[@]} -eq 0 ]] && continue
         # NCBI workflow: combine each region, then edit_imgt_file.pl fixes the IMGT deflines
         cat "${files[@]}" >"${outdir}/${region}.raw.tmp"
-        "${perl_bin}" "${script_dir}/edit_imgt_file.pl" "${outdir}/${region}.raw.tmp" >"${outdir}/${region}.fasta.tmp"
+        "${perl_bin}" "${edit_imgt_file}" "${outdir}/${region}.raw.tmp" >"${outdir}/${region}.fasta.tmp"
         mv "${outdir}/${region}.fasta.tmp" "${outdir}/${region}.fasta"
         rm "${outdir}/${region}.raw.tmp"
     done
