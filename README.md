@@ -14,8 +14,12 @@ the official IMGT reference data.
 - `curl`
 
 `edit_imgt_file.pl` is not included in this repository. It ships in the `bin/`
-directory of the IgBLAST release package; pass its path with `--edit-imgt-file`
-when running `process`.
+directory of the IgBLAST release package. `process` looks for it in `PATH`;
+otherwise pass its path with `--edit-imgt-file`.
+
+`build` uses `makeblastdb` from `PATH`, or `makeigblastdb` if `makeblastdb` is
+not there. The Bioconda `igblast` package installs NCBI's `makeblastdb` under
+the name `makeigblastdb`. `--makeblastdb <path>` accepts either executable.
 
 ## Quick start
 
@@ -32,9 +36,10 @@ when running `process`.
 
    ```bash
    ./scripts/imgt-refbuilder.sh process \
-       --organism Homo_sapiens \
-       --edit-imgt-file /path/to/edit_imgt_file.pl
+       --organism Homo_sapiens
    ```
+
+   Add `--edit-imgt-file /path/to/edit_imgt_file.pl` if it is not in `PATH`.
 
 4. Build the BLAST databases:
 
@@ -63,8 +68,8 @@ explicitly:
 
     --curl <path>
     --perl <path>
-    --edit-imgt-file <path>   # required for process
-    --makeblastdb <path>
+    --edit-imgt-file <path>
+    --makeblastdb <path>      # makeblastdb or makeigblastdb
     --igblastn <path>
     --igdata <path>           # directory containing internal_data/ and optional_file/
 

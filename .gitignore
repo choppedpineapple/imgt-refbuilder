@@ -1,4 +1,7 @@
 # generated/downloaded reference data
 data/
 
+# local copies of external tools (e.g. NCBI edit_imgt_file.pl), never committed
+.local-tools/
+
 *.tmp

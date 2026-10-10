@@ -9,7 +9,7 @@ base_url="https://www.imgt.org/download/V-QUEST/IMGT_V-QUEST_reference_directory
 
 usage() {
     echo "usage: ${0} download --organism <name> --chain heavy|kappa|lambda|all [--curl <path>]" >&2
-    echo "       ${0} process --organism <name> --edit-imgt-file <path> [--perl <path>]" >&2
+    echo "       ${0} process --organism <name> [--edit-imgt-file <path>] [--perl <path>]" >&2
     echo "       ${0} build --organism <name> [--makeblastdb <path>]" >&2
     echo "       ${0} test --organism <name> --query <fasta> [--igblastn <path>] [--igdata <path>]" >&2
     exit 2
@@ -118,9 +118,9 @@ process)
         esac
     done
     [[ -z "${organism}" ]] && usage
-    if [[ -z "${edit_imgt_file}" ]]; then
-        echo "error: --edit-imgt-file <path> is required (obtain edit_imgt_file.pl from the NCBI IgBLAST release)" >&2
-        exit 2
+    if [[ -z "${edit_imgt_file}" ]] && ! edit_imgt_file="$(command -v edit_imgt_file.pl)"; then
+        echo "error: edit_imgt_file.pl not found in PATH; pass --edit-imgt-file <path> (it ships with the NCBI IgBLAST release)" >&2
+        exit 1
     fi
     if [[ ! -f "${edit_imgt_file}" || ! -r "${edit_imgt_file}" ]]; then
         echo "error: cannot read edit_imgt_file.pl: ${edit_imgt_file}" >&2
@@ -179,10 +179,11 @@ build)
             echo "error: not executable: ${makeblastdb_bin}" >&2
             exit 1
         fi
-    elif makeblastdb_bin="$(command -v makeblastdb)"; then
+    # Bioconda's igblast package installs makeblastdb under the name makeigblastdb
+    elif makeblastdb_bin="$(command -v makeblastdb || command -v makeigblastdb)"; then
         :
     else
-        echo "error: makeblastdb not found in PATH; pass --makeblastdb <path>" >&2
+        echo "error: neither makeblastdb nor makeigblastdb found in PATH; pass --makeblastdb <path> (either works)" >&2
         exit 1
     fi
     indir="data/processed/${organism}"
